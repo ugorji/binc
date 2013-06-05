@@ -1,7 +1,14 @@
 # Binc
 
 **Author:** *Ugorji Nwoke*  
-**Version:** *0.1.0 / May 16, 2013*
+**Version:** *0.2.0 / June 5, 2013*
+
+**Change Log:**
+
+1. 0.2.0 / June 5, 2013
+    - Added Symbols, Compact Integers, Compact Floats
+1. 0.1.0 / May 16, 2013
+    - Initial Public release
 
 Binc is a lightweight, binary language-independent data interchange
 format. It supports efficient and extensible encoding (and decoding) of
@@ -18,8 +25,8 @@ and unrestricted.
 It supports:
 
 - full spectrum of common and distinct data types.
-- arbitrarily large precision signed and unsigned integers, 
-  up to 2^15 bits of precision (for bignums, etc)
+- arbitrarily large precision signed and unsigned integers;
+  Uses up to 2^64-1 bytes to represent integer value (for bignums, etc)
 - full range of IEEE 754 2008 floating point types 
   (decimals, half-float, float, double, double extended, ...)
 - efficient for common entries (using single bytes)
@@ -28,10 +35,13 @@ It supports:
     - embed length of small containers directly in descriptor byte (if len < 12).
       containers are string, byte array, array, map, extension.
 - full unicode strings (utf8, utf16, utf32)
-- builtin timestamp 
-- builtin binary (separate from strings)
+- builtin timestamp type
+- builtin binary type (separate from strings)
 - special values (NaN, +Inf, -Inf, Null, etc)
 - custom user-defined types and extensions (up to 255 user-defined types supported)
+- Efficient storage of symbols (const strings, enums, field names, etc)
+- Efficient storage of floats; 
+  trailing zeros are not encoded if they can save space.
 
 ## Binc Stream and Data Types
 
@@ -42,10 +52,12 @@ The data types are:
 
 - special values (True, False, null, NaN, +Infinity, -Infinity)
 - float
+- decimal
 - unsigned integer
 - signed integer
 - small signed int (1 to 16)
 - string
+- symbol
 - other unicode (UTF-16LE, UTF-16BE, UTF-32LE, UTF-32BE)
 - byte array
 - array
@@ -60,13 +72,13 @@ composed of 2 4-bit values, a value descriptor (hereafter called 'vd')
 and a value specification (hereafter called 'vs'). 'vd' denotes the type
 of the value, and the use of 'vs' is different for every 'vd'.
 
-For some integer values, the concept of degree of precision 'n'
-translates directly into the bits of precision 'b' required to store it:
-'b' = 8 * 2^n. n can go up to 15. For example:
+To represent length, we use the concept of degree of precision. The
+degree of precision 'n' translates directly into the bits of precision
+'b' required to represent its size: 'b' = 8 * 2^n. 0 <= n <= 3. For
+example:
 
     if n = 0, b = 8 * 2^0 = 8 * 1 = 8  (represented by 1 byte e.g. uint8). 
     if n = 3, b = 8 * 2^3 = 8 * 8 = 64 (represented by 8 bytes e.g. uint64).
-    if n = 15, b = 8 * 2^15 = 8 * 32768 = 262144 (representable as a bignum).
 
 Let's look at each data type one by one.
 
@@ -82,26 +94,30 @@ vs represents the special value:
     0x3 NaN    (float)
     0x4 +Inf   (float)
     0x5 -Inf   (float)
-    0x6 0      (signed int)
-    0x7 -1     (signed int)
+    0x6 0.0    (float)
+    0x7 0      (signed int)
+    0x8 -1     (signed int)
 
-### Unsigned Integer
+### Integer
+
+There are 2 types of integers: signed and unsigned.
+
+vs represents the number of bytes (l) which contain the integer value.
+
+    If vs <= 7, l = vs+1.
+    Else vs-7 bytes subsequent bytes are read, 
+        the number is decoded in big endian format as l.
+
+Once l is deciphered, then l subsequent bytes denote the integer value
+encoded in big-endian form.
+
+#### Unsigned Integer
 
 vd = 0x1
 
-This type represents unsigned integers.
-
-vs represents the degree of precision (up to 15). Subsequent 2^n bytes
-denote the actual value, encoded in big-endian form.
-
-### Signed Integer
+#### Signed Integer
 
 vd = 0x2
-
-This type represents signed integers.
-
-vs represents the degree of precision (up to 15). Subsequent 2^n bytes
-denote the actual value, encoded in big-endian form.
 
 ### Small Signed Integer
 
@@ -116,29 +132,55 @@ The value here is vs+1.
 
 vd = 0x3
 
-vs represents the type of float as recommended by IEEE 754, 
-according to the table below (values in octal form):
+vs is of the form 0bXYYY.
 
-    0000    binary16:   Half-Precision       (16-bit / 2 bytes)
-    0001    binary32:   Single-Precision     (32-bit / 4 bytes)
-    0002    binary32e:  extended             (40-bit / 5 bytes)
-    0003    binary64:   Double-Precision     (64-bit / 8 bytes)
-    0004    binary64e:  extended             (80-bit / 10 bytes)
-    0005    binary128:  Quadruple-Precision  (128-bit / 16 bytes)
-    0006    binary128e: extended (160-bit)   (160-bit / 20 bytes)
-    0007
-    
-    0010    decimal32                        (32-bit / 4 bytes)
-    0011    decimal64                        (64-bit / 8 bytes)
-    0012    decimal64e extended              (80-bit / 10 bytes)
-    0013    decimal128                       (128-bit / 16 bytes)
-    0014    decimal128e extended             (160-bit / 20 bytes)
-    0015
-    0016
-    0017
+YYY denotes the type of float as recommended by IEEE 754, according to
+the table below:
 
-Subsequent n bytes (where n is number of bytes in table above) denote
-the actual value, encoded in big-endian form.
+    0    binary16:   Half-Precision       (16-bit / 2 bytes)
+    1    binary32:   Single-Precision     (32-bit / 4 bytes)
+    2    binary32e:  extended             (40-bit / 5 bytes)
+    3    binary64:   Double-Precision     (64-bit / 8 bytes)
+    4    binary64e:  extended             (80-bit / 10 bytes)
+    5    binary128:  Quadruple-Precision  (128-bit / 16 bytes)
+    6    binary128e: extended (160-bit)   (160-bit / 20 bytes)
+    7
+
+n is number of bytes in table above. l is number of bytes used to encode
+the float value.
+
+    If X is not set, then l = n.
+    Else subsequent byte contains value of l.
+
+Once l is deciphered, then l subsequent bytes denote the float value. If l < n, 
+assume trailing 0 bytes when decoding according to IEEE 754 format.
+
+### Decimal
+
+vd = 0xc
+
+vs is of the form 0bXYYY.
+
+YYY denotes the type of decimal as recommended by IEEE 754, according to
+the table below:
+
+    0    decimal32                        (32-bit / 4 bytes)
+    1    decimal64                        (64-bit / 8 bytes)
+    2    decimal64e extended              (80-bit / 10 bytes)
+    3    decimal128                       (128-bit / 16 bytes)
+    4    decimal128e extended             (160-bit / 20 bytes)
+    5
+    6
+    7
+
+n is number of bytes in table above. l is number of bytes used to encode
+the float value.
+
+    If X is not set, then l = n.
+    Else subsequent byte contains value of l.
+
+Once l is deciphered, then l subsequent bytes denote the float value. If l < n, 
+assume trailing 0 bytes when decoding according to IEEE 754 format.
 
 ### Timestamp
 
@@ -241,6 +283,27 @@ tag.
 After the container len (l) is encoded, the subsequent byte is the
 tag. Thereafter, subsequent l bytes is the custom object encoded.
 
+### Symbol
+
+vd = 0xb
+
+A symbol is a constant string, which is repeated a lot in the encoded stream. It usually
+represents enumerated constants, field names or other constant string values.
+
+vs is in the form 0bWXYY, described below:
+
+    W:  If set, the symbol id occupies two bytes (ie 256 <= symbol <= 65536).
+        If not set, symbol id occupies one byte (ie 0 <= symbol <= 255).
+    X:  If set, the symbol id is followed by the string it represents.
+        This is important because the first time a symbol is seen, it's value is recorded.
+    YY: This is the degree of precision 'n' of the length of the string.
+        It is only used if X above is set.
+
+Subsequent 1 or 2 bytes denote the symbol integer value (depending on W setting above).
+
+If X is set, then subsequent 2^n bytes represent the length l, and subsequent l bytes
+represent the symbol string value.
+
 ### Unicode Other
 
 vd = 0xa
@@ -250,9 +313,9 @@ Unicode other supports UTF-16LE, UTF-16BE, UTF-32LE, UTF-32BE.
 vs is broken up into 2 parts: 0bXXYY. 
 
 - XX represents the encoding. 
-- YY represents the degree of precision n of the length, as in unsigned
-  integer above. This means 0 <= n <=3, and consequently length can only
-  go up to 64 bits of precision.
+- YY represents the degree of precision n of the length. This means 0 <=
+  n <=3, and consequently length can only go up to 2^64-1 (ie up to 64
+  bits of precision).
 
 XX values are:
   
@@ -272,8 +335,8 @@ library. Each library should list its limitations.
 
 For example, the Go library lists the following unsupported features:
 
-- integer values with degree of precision > 3 (ie beyond 64 bit integers)
-- floats other than IEEE 754 binary32 and binary64 floats
+- integer values beyond 64 bit integers
+- decimals and floats other than IEEE 754 binary32 and binary64 floats
 - unicode other 
 
 However, people using the format for scientific data exchange, financial
@@ -287,3 +350,4 @@ The recommended mime type is application/x-binc.
 
 When writing out files using the Binc format, the recommended file
 extension is "binc" (e.g. mydata.binc).
+
