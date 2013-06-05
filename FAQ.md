@@ -64,6 +64,7 @@ encoding and decoding.
 In summary, for an in-memory struct with size 16K:
 
 | Codec   | Encoded Size (KB) | Encoding Time (ms) | Decoding Time (ms) |
+|---------|-------------------|--------------------|--------------------|
 | Binc    | 3.4 | 304 | 364 |
 | Msgpack | 5.1 | 325 | 397 |
 | JSON    | 8.2 | 452 | 966 |
