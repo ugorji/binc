@@ -5,6 +5,8 @@
 
 **Change Log:**
 
+1. 0.3.0 / June 28, 2013
+    - Made timestamp representation more compact
 1. 0.2.0 / June 5, 2013
     - Added Symbols, Compact Integers, Compact Floats
 1. 0.1.0 / May 16, 2013
@@ -186,42 +188,54 @@ assume trailing 0 bytes when decoding according to IEEE 754 format.
 
 vd = 0x8
 
-vs is the number of bytes representing the timestamp (4 <= vs <= 14).
+vs is the number of bytes representing the timestamp (1 <= vs <= 15).
 
-Subsequent vs bytes denote the timestamp value, which is represented as
-a byte array containing a sequence of integer values in big endian
-encoding, with optional timezone information.
+Subsequent vs bytes denote the timestamp value. 
 
-To illustrate, we will use the key below:
+A timestamp is composed of 3 components:
 
-    secs32:  seconds since unix epoch, an int32 value (4 bytes).
-             support "current" timestamps: +/- 68 years from Unix Epoch 1/1/1970 i.e. 1902-2038
-    secs:    seconds since unix epoch, an int64 value (8 bytes).
-             support infinitely all timestamps.
-    nsecs:   fractional seconds as nanoseconds, an int32 value (4 bytes).
-    tz:      timezone offset in minutes east of UTC, a uint16 value (2 bytes).
-             Timezone information is fully represented by a UTC offset (east or west) 
-             and a dst (daylight savings time) flag. 
-             Timezone offset has a range of 26 hours or 1560 minutes, 
-             which is fully represented using the bottom 11 bits.
-             The 3 most significant bits (Bits 15, 14 and 13) are used as below:
-                 Bit 15 = offset_position: set to 1 if west of UTC (for example in UTC-08:00)
-                 Bit 14 = have_dst: set to 1 if we set the dst flag.
-                 Bit 13 = dst_on: set to 1 if dst is in effect at the time, or 0 if not.
+- secs: signed integer representing seconds since unix epoch
+- nsces: unsigned integer representing fractional seconds as a 
+  nanosecond offset within secs, in the range 0 <= nsecs < 1e9
+- tz: signed integer representing timezone offset in minutes east of UTC, 
+  and a dst (daylight savings time) flag
 
-As mentioned above, a timestamp value is a variable length byte array, where the length
-determines the information stored:
+When encoding a timestamp, the first byte is the descriptor, which
+defines which components are encoded and how many bytes are used to
+encode secs and nsecs components. *If secs/nsecs is 0 or tz is UTC, it
+is not encoded in the byte array explicitly*.
 
-    4 bytes: secs32
-    6 bytes: secs32 tz
-    8 bytes: secs32 nsecs
-    10 bytes: secs32 nsecs tz
-    .
-    9 bytes: secs 0
-    11 bytes: secs tz 0
-    12 bytes: secs nsecs
-    14 bytes: secs nsecs tz
+    Descriptor 8 bits are of the form `A B C DDD EE`:
+        A:   Is secs component encoded? 1 = true
+        B:   Is nsecs component encoded? 1 = true
+        C:   Is tz component encoded? 1 = true
+        DDD: Number of extra bytes for secs (range 0-7).
+             If A = 1, secs encoded in DDD+1 bytes.
+                 If A = 0, secs is not encoded, and is assumed to be 0.
+                 If A = 1, then we need at least 1 byte to encode secs.
+                 DDD says the number of extra bytes beyond that 1.
+                 E.g. if DDD=0, then secs is represented in 1 byte.
+                      if DDD=2, then secs is represented in 3 bytes.
+        EE:  Number of extra bytes for nsecs (range 0-3).
+             If B = 1, nsecs encoded in EE+1 bytes (similar to secs/DDD above)
 
+Following the descriptor bytes, subsequent bytes are:
+
+    secs component encoded in `DDD + 1` bytes (if A == 1)
+    nsecs component encoded in `EE + 1` bytes (if B == 1)
+    tz component encoded in 2 bytes (if C == 1)
+    
+secs and nsecs components are integers encoded in a BigEndian
+2-complement encoding format.
+
+tz component is encoded as 2 bytes (16 bits). Most significant bit 15 to
+Least significant bit 0 are described below:
+
+    Timezone offset has a range of -12:00 to +14:00 (ie -720 to +840 minutes). 
+    Bit 15 = have\_dst: set to 1 if we set the dst flag.
+    Bit 14 = dst\_on: set to 1 if dst is in effect at the time, or 0 if not.
+    Bits 13..0 = timezone offset in minutes. It is a signed integer in Big Endian format.
+    
 ### Containers
 
 Containers are string, byte array, array, map, custom extension.
@@ -337,7 +351,7 @@ For example, the Go library lists the following unsupported features:
 
 - integer values beyond 64 bit integers
 - decimals and floats other than IEEE 754 binary32 and binary64 floats
-- unicode other 
+- unicode other than utf-8
 
 However, people using the format for scientific data exchange, financial
 data exchange, or specific localization concerns, may need big integers,

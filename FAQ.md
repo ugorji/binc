@@ -75,9 +75,9 @@ In summary, for an in-memory struct with size 16K:
 
 The following features were instrumental:
 
-- Symbols: We don't have to duplicate constant strings. Just encode once
-  and refer by a 1 or 2-byte tag.
-- Pruning insignificant leading bytes from integers.
-- Pruning insignificant trailing bytes from floats. 
+- Symbols: We don't have to duplicate constant strings.  
+  Just encode once and refer by a 1 or 2-byte tag.
+- Pruning insignificant leading (sign-extension) bytes from integers.
+- Pruning insignificant trailing bytes from floats.  
   For example, this allows us encode double-precision 17.0 using 2 bytes instead of 8.
 

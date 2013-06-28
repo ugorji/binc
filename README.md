@@ -6,7 +6,7 @@ extensible, data interchange format for structured data.
 
 The spec is available at [SPEC.md]
 (http://github.com/ugorji/binc/blob/master/SPEC.md). 
-It is currently at version 0.1.0. 
+It is currently at version 0.3.0. 
 Binc adheres to the [Semantic Versioning] (http://semver.org/) standard.
 
 Answers to frequently asked questions are available at [FAQ.md]
