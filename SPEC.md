@@ -1,7 +1,7 @@
 # Binc
 
 **Author:** *Ugorji Nwoke*  
-**Version:** *0.2.0 / June 5, 2013*
+**Version:** *0.3.0 / June 28, 2013*
 
 **Change Log:**
 
