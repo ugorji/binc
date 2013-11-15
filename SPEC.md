@@ -5,6 +5,8 @@
 
 **Change Log:**
 
+1. 0.4.0 / November 15, 2013
+    - Clarify negative vs positive integers (instead of signed vs unsigned)
 1. 0.3.0 / June 28, 2013
     - Made timestamp representation more compact
 1. 0.2.0 / June 5, 2013
@@ -27,13 +29,13 @@ and unrestricted.
 It supports:
 
 - full spectrum of common and distinct data types.
-- arbitrarily large precision signed and unsigned integers;
+- arbitrarily large precision negative and positive integers;
   Uses up to 2^64-1 bytes to represent integer value (for bignums, etc)
 - full range of IEEE 754 2008 floating point types 
   (decimals, half-float, float, double, double extended, ...)
 - efficient for common entries (using single bytes)
-    - use single byte for special values (bool, null, NaN, +/-Infinity, etc)
-    - use single byte for signed integers in range -1 to 16
+    - use single byte for special values (bool, null, NaN, +/-Infinity, 0, -1, etc)
+    - use single byte for positive integers in range 1 to 16
     - embed length of small containers directly in descriptor byte (if len < 12).
       containers are string, byte array, array, map, extension.
 - full unicode strings (utf8, utf16, utf32)
@@ -55,9 +57,9 @@ The data types are:
 - special values (True, False, null, NaN, +Infinity, -Infinity)
 - float
 - decimal
-- unsigned integer
-- signed integer
-- small signed int (1 to 16)
+- positive integer
+- negative integer
+- small int (1 to 16)
 - string
 - symbol
 - other unicode (UTF-16LE, UTF-16BE, UTF-32LE, UTF-32BE)
@@ -97,31 +99,31 @@ vs represents the special value:
     0x4 +Inf   (float)
     0x5 -Inf   (float)
     0x6 0.0    (float)
-    0x7 0      (signed int)
-    0x8 -1     (signed int)
+    0x7 0      (positive int)
+    0x8 -1     (negative int)
 
 ### Integer
 
-There are 2 types of integers: signed and unsigned.
+There are 2 types of integers: negative (<0) and positive (>=0).
 
 vs represents the number of bytes (l) which contain the integer value.
 
     If vs <= 7, l = vs+1.
     Else vs-7 bytes subsequent bytes are read, 
-        the number is decoded in big endian format as l.
+        representing l encoded in big endian format.
 
-Once l is deciphered, then l subsequent bytes denote the integer value
-encoded in big-endian form.
+Once l is deciphered, then l subsequent bytes denote the absolute integer value
+encoded in big-endian format.
 
-#### Unsigned Integer
+#### Positive Integer
 
 vd = 0x1
 
-#### Signed Integer
+#### Negative Integer
 
 vd = 0x2
 
-### Small Signed Integer
+### Small Positive Integer
 
 vd = 0x9
 
@@ -154,8 +156,9 @@ the float value.
     If X is not set, then l = n.
     Else subsequent byte contains value of l.
 
-Once l is deciphered, then l subsequent bytes denote the float value. If l < n, 
-assume trailing 0 bytes when decoding according to IEEE 754 format.
+Once l is deciphered, then l subsequent bytes denote the float value.
+The float value is encoded according to IEEE 754 format.
+If l < n, assume trailing 0 bytes.
 
 ### Decimal
 
@@ -194,10 +197,10 @@ Subsequent vs bytes denote the timestamp value.
 
 A timestamp is composed of 3 components:
 
-- secs: signed integer representing seconds since unix epoch
-- nsces: unsigned integer representing fractional seconds as a 
+- secs: integer (negative or positive) representing seconds since unix epoch
+- nsces: positive integer representing fractional seconds as a 
   nanosecond offset within secs, in the range 0 <= nsecs < 1e9
-- tz: signed integer representing timezone offset in minutes east of UTC, 
+- tz: integer (negative or positive) representing timezone offset in minutes east of UTC, 
   and a dst (daylight savings time) flag
 
 When encoding a timestamp, the first byte is the descriptor, which
@@ -234,7 +237,7 @@ Least significant bit 0 are described below:
     Timezone offset has a range of -12:00 to +14:00 (ie -720 to +840 minutes). 
     Bit 15 = have\_dst: set to 1 if we set the dst flag.
     Bit 14 = dst\_on: set to 1 if dst is in effect at the time, or 0 if not.
-    Bits 13..0 = timezone offset in minutes. It is a signed integer in Big Endian format.
+    Bits 13..0 = timezone offset in minutes. It is a positive integer in Big Endian format.
     
 ### Containers
 
