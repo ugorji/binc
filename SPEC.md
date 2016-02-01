@@ -101,7 +101,8 @@ vs represents the special value:
     0x6 0.0    (float)
     0x7 0      (positive int)
     0x8 -1     (negative int)
-
+    0x9 NA     (NotAvailable; missing data)
+    
 ### Integer
 
 There are 2 types of integers: negative (<0) and positive (>=0).
