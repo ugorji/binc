@@ -71,10 +71,12 @@ The data types are:
 
 Each data value is represented by a "byte descriptor" (hereafter called
 'bd') which either completely encapsulates the value, or denotes the
-extra bytes to describe the value. In general, bd (a 8-bit value) is
-composed of 2 4-bit values, a value descriptor (hereafter called 'vd')
-and a value specification (hereafter called 'vs'). 'vd' denotes the type
-of the value, and the use of 'vs' is different for every 'vd'.
+extra bytes to describe the value.
+
+In general, bd (a 8-bit value) is composed of 2 4-bit values, a value
+descriptor (hereafter called 'vd') and a value specification (hereafter
+called 'vs'). 'vd' denotes the type of the value, and the use of 'vs' is
+different for every 'vd'.
 
 To represent length, we use the concept of degree of precision. The
 degree of precision 'n' translates directly into the bits of precision
